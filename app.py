@@ -5,13 +5,17 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import ast
 
+
 from src.database import (
+    register_user,
+    authenticate_user,
     save_scan,
     get_all_scans,
     save_feedback,
     get_all_feedback,
     review_feedback
 )
+
 
 from src.hybrid_detector import (
     detect_message,
@@ -31,15 +35,224 @@ st.set_page_config(
     layout="wide"
 )
 
+# LOGIN PAGE THEME AND ANIMATIONS
+st.markdown("""
+<style>
+
+/* Animated background */
+.stApp {
+    background: linear-gradient(
+        -45deg,
+        #171027,
+        #211538,
+        #2A1942,
+        #171027
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 14s ease infinite;
+}
+
+@keyframes gradientMove {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Login and signup form */
+div[data-testid="stForm"] {
+    background: rgba(42, 29, 66, 0.88);
+    border: 1px solid #493564;
+    border-radius: 18px;
+    padding: 25px;
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.16);
+    transition: all 0.3s ease;
+}
+
+div[data-testid="stForm"]:hover {
+    border-color: #A78BFA;
+    box-shadow: 0 10px 35px rgba(139, 92, 246, 0.30);
+    transform: translateY(-3px);
+}
+
+/* Input fields */
+div[data-testid="stTextInput"] input {
+    background-color: #171027;
+    color: #F5F0FF;
+    border: 1px solid #493564;
+    border-radius: 10px;
+    transition: all 0.25s ease;
+}
+
+div[data-testid="stTextInput"] input:focus {
+    border-color: #A78BFA;
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.35);
+}
+
+/* Buttons */
+.stButton > button,
+.stFormSubmitButton > button {
+    background: linear-gradient(90deg, #8B5CF6, #A78BFA);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover,
+.stFormSubmitButton > button:hover {
+    background: linear-gradient(90deg, #A78BFA, #F0A4C8);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 18px rgba(139, 92, 246, 0.35);
+}
+
+/* Login headings */
+h1, h2, h3 {
+    color: #F5F0FF;
+}
+
+/* Labels and text */
+.stApp p,
+.stApp label {
+    color: #E6DDF5;
+}
+
+/* Smooth appearance */
+div[data-testid="stVerticalBlock"] {
+    transition: all 0.3s ease;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+
 
 # =========================================================
 # SESSION STATE
 # =========================================================
+
 if "history" not in st.session_state:
     st.session_state.history = []
 
 if "feedback" not in st.session_state:
     st.session_state.feedback = []
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if "auth_page" not in st.session_state:
+    st.session_state.auth_page = "Login"
+
+
+# =========================================================
+# LOGIN AND SIGN UP
+# =========================================================
+
+if st.session_state.user is None:
+
+    st.markdown(
+        "<h1 style='text-align:center;'>🛡️ ScamShield AI</h1>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "<p style='text-align:center;'>"
+        "Intelligent Scam and Phishing Detection"
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    _, center, _ = st.columns([1, 1.4, 1])
+
+    with center:
+
+        auth_choice = st.radio(
+            "Account",
+            ["Login", "Sign Up"],
+            horizontal=True,
+            key="auth_choice"
+        )
+
+        if auth_choice == "Sign Up":
+
+            st.subheader("Create Your Account")
+
+            with st.form("signup_form"):
+
+                name = st.text_input("Full Name")
+                email = st.text_input("Email Address")
+                password = st.text_input(
+                    "Password (minimum 8 characters)",
+                    type="password"
+                )
+                confirm_password = st.text_input(
+                    "Confirm Password",
+                    type="password"
+                )
+
+                signup_clicked = st.form_submit_button(
+                    "Create Account",
+                    use_container_width=True
+                )
+
+                if signup_clicked:
+
+                    if password != confirm_password:
+                        st.error("Passwords do not match.")
+
+                    else:
+                        success, message = register_user(
+                            name,
+                            email,
+                            password
+                        )
+
+                        if success:
+                            st.success(message)
+                            st.info(
+                                "Select Login above to access your account."
+                            )
+                        else:
+                            st.error(message)
+
+        else:
+
+            st.subheader("Welcome Back")
+
+            with st.form("login_form"):
+
+                email = st.text_input("Email Address")
+                password = st.text_input(
+                    "Password",
+                    type="password"
+                )
+
+                login_clicked = st.form_submit_button(
+                    "Login",
+                    use_container_width=True
+                )
+
+                if login_clicked:
+
+                    user = authenticate_user(
+                        email,
+                        password
+                    )
+
+                    if user:
+                        st.session_state.user = user
+                        st.session_state.history = []
+                        st.session_state.feedback = []
+                        st.rerun()
+
+                    else:
+                        st.error(
+                            "Invalid email or password."
+                        )
+
+    st.stop()
 
 
 # =========================================================
@@ -265,8 +478,15 @@ def get_risk_level(score):
 # =========================================================
 # DATA — LOAD PERSISTENT RECORDS FROM SQLITE
 # =========================================================
+# DATA — LOAD PERSISTENT RECORDS FROM SQLITE
 
-saved_scans = get_all_scans()
+saved_scans = get_all_scans(
+    user_id=st.session_state.user["id"]
+)
+
+saved_feedback = get_all_feedback(
+    user_id=st.session_state.user["id"]
+)
 
 history_records = []
 
@@ -932,13 +1152,14 @@ elif page == "Threat Scanner":
                 item_level = get_risk_level(item["Score"])
 
                 scan_id = save_scan(
-                    scan_type=item["Type"],
-                    input_text=item["Input"],
-                    prediction=item["Result"],
-                    risk_score=item["Score"],
-                    risk_level=item_level,
-                    reasons=item["Reasons"]
-                )
+    scan_type=item["Type"],
+    input_text=item["Input"],
+    prediction=item["Result"],
+    risk_score=item["Score"],
+    risk_level=item_level,
+    reasons=item["Reasons"],
+    user_id=st.session_state.user["id"]
+)
 
                 st.write(f"Scan #{scan_id} saved successfully.")
 
@@ -1338,3 +1559,12 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+st.sidebar.divider()
+st.sidebar.write(f"Logged in as **{st.session_state.user['name']}**")
+
+if st.sidebar.button("Log Out", use_container_width=True):
+    st.session_state.user = None
+    st.session_state.history = []
+    st.session_state.feedback = []
+    st.rerun()
