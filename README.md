@@ -95,7 +95,92 @@ ScamShieldAI/
     ├── logistic_text_model.py
     └── inspect_url_dataset.py
 ```
+## Working of the Project
 
+ScamShield AI follows a multi-stage detection process to identify suspicious messages and phishing URLs.
+
+### 1. User Input
+
+The user interacts with the Streamlit dashboard and selects one of three scanning options:
+
+- **Message Scan:** Enter an SMS or text message.
+- **URL Scan:** Enter a website URL.
+- **Combined Scan:** Submit both a message and a URL for analysis.
+
+### 2. SMS Detection Process
+
+When a message is submitted:
+
+1. The input message is passed to the trained text classification pipeline.
+2. TF-IDF converts the message into numerical features based on word importance.
+3. The Logistic Regression model analyses these features.
+4. The model generates a spam risk score.
+5. A threshold of 0.40 is used to classify the message as spam or legitimate.
+6. The system displays the prediction and relevant warning indicators.
+
+### 3. Phishing URL Detection Process
+
+When a URL is submitted:
+
+1. The URL is passed to the URL feature extraction module.
+2. The system extracts 12 features, including:
+   - URL length
+   - Domain length
+   - Number of dots and hyphens
+   - Number of special characters and digits
+   - Number of subdomains
+   - HTTPS indicator
+   - IP address indicator
+   - Suspicious keyword count
+   - Path length
+   - Brand impersonation indicator
+3. The extracted features are passed to the trained Random Forest model.
+4. The model generates a phishing risk score.
+5. A threshold of 0.50 is used to classify the URL.
+6. The system displays the prediction and detected warning indicators.
+
+### 4. Combined Risk Assessment
+
+In Combined Scan mode, the system analyses the message and URL separately.
+
+- The SMS model produces a message risk score.
+- The URL model produces a URL risk score.
+- The higher of the two available scores is selected as the overall risk score.
+
+This approach ensures that a high-risk signal from either detector is reflected in the combined assessment.
+
+### 5. Risk Level Classification
+
+The overall risk score is converted into one of three categories:
+
+| Risk Score | Risk Level |
+|---|---|
+| Below 40% | Low Risk |
+| 40% to below 70% | Uncertain |
+| 70% and above | High Risk |
+
+### 6. Explainable Warning Indicators
+
+Along with the prediction, the system displays warning indicators to help users understand suspicious characteristics.
+
+Examples include:
+- Suspicious words or phrases in a message.
+- Multiple subdomains in a URL.
+- Suspicious keywords such as login, verify, or account.
+- A possible mismatch between a brand name and the registered domain.
+
+These indicators are heuristic explanations and do not prove that a message or website is malicious.
+
+### 7. Database and Feedback Management
+
+- Every completed scan is stored in an SQLite database.
+- Scan records include the input, prediction, risk score, risk level, warning indicators, and timestamp.
+- Users can view previous scans through the Scan History page.
+- The Analytics page presents visual summaries of scan activity and detected threats.
+- Users can submit feedback about predictions.
+- Submitted feedback is stored with a Pending review status and can be reviewed before being considered for future model improvements.
+
+**Important:** User feedback does not automatically retrain or modify the existing machine-learning models.
 ## Installation and Setup
 
 ### 1. Clone the repository
